@@ -1,6 +1,0 @@
-address = apis.guadaltel.es:9200
-
-GET /_cat/indices?v
-
-GET /
-
