@@ -1,0 +1,327 @@
+address = apis.guadaltel.es:9200
+
+GET /_cluster/health
+
+GET /_cat/nodes
+
+GET /_cat/indices
+ 
+- 1 - 
+
+GET resources/_search
+
+{
+    "query": 
+    {
+        "match":
+        {
+            "terms_native_es.es":
+            {
+                "query": "hoteles en la playa de huelva",
+                "operator": "or",
+                "minimum_should_match": "2"
+            }    
+        }        
+    }
+}
+
+- 2 -
+
+GET /resources/_search?filter_path=hits.hits._source
+
+{
+    "query": 
+    {
+        "match":
+        {
+            "territories_name_es": "huelva cadiz"
+        }
+    },
+    "sort": 
+    [
+        { "territories_habitants": "desc" }
+    ],
+    "size": "1"  
+}
+
+- 3 -
+
+GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
+
+{
+    "query": 
+    {
+        "bool": 
+        {
+            "must":
+            [
+                {
+                    "term": 
+                    {
+                        "territories_name_es": "huelva cadiz" 
+                    }    
+                }   
+            ]           
+        }
+    },
+    "sort": 
+    [
+        { "territories_habitants": "desc" }
+    ],
+    "size": "1"  
+}
+
+- 4 - Consulta la localizacion con más habitantes que esté en el municipio de  Huelva o Cádiz con playa
+
+GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
+
+{
+    "query": 
+    {
+        "bool": 
+        {
+            "must":
+            [
+                {
+                    "term":{"segment_name_es": "playa"}
+                },
+                {
+                    "bool":
+                    {
+                        "should":
+                        [
+                            {"term":{"territories_name_es": "huelva" }},
+                            {"term":{"territories_name_es": "cadiz" }}
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "sort": 
+    [
+        { "territories_habitants": "desc" }
+    ],
+    "size": "1"  
+}
+
+{
+    "query": 
+    {
+        "bool": 
+        {
+            "must":
+            [
+                {
+                    "match":{"segments_name_es.es": "playa"}
+                },
+                {
+                    "bool": // devuelve true si se cumple alguno del should
+                    {
+                        "should":
+                        [
+                            {"match":{"territories_name_es.es": "huelva" }},
+                            {"match":{"territories_name_es.es": "cadiz" }}
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    
+    "size": "1"  
+}
+
+- 5 - Hoteles rurales en la provincia de granada
+
+
+GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
+
+
+{
+    "query": 
+    {
+        "bool": 
+        {
+            "must":
+            [
+                {
+                    "match":{"terms_native_es.es": "rural"}
+                },
+                {
+                    "match":{"parent_territory_name_es.es": "granada"} // debería ser filtro
+                },
+                {
+                    "match":{"subtypes_name_es.es": "hotel"} // ¿filtro?
+                }
+            ]
+
+        }
+    } 
+}
+
+- 6 - Búsqueda por filtro: {Municipio: Cádiz}, {Tipo de recurso: Playas}
+
+GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "must":
+            [
+                {"match":{"territories_name_es.es":"cadiz"}},
+                {"match":{"resource_type_name_es.es":"playas"}}
+            ]
+        }
+    }
+}
+// {
+//     "query":
+//     {
+//         "bool":
+//         {
+//             "filter":
+//             [
+//                 {"term":{"territories_name_es.es":"cadiz"}},
+//                 {"term":{"resource_type_name_es.es":"playas"}}
+//             ]
+//         }
+//     }
+// }
+
+- 7 - Consulta la media de visitas en todos los documentos
+
+GET /resources/_search 
+
+{
+    "size": 0,
+    "aggs": 
+    {
+        "avg_visits": { "avg": { "field": "visits_old_es" } }
+    }
+}
+
+- 8 - Consulta la media de visitas de localizaciones en las que se puede hacer paracaidismo
+
+GET /resources/_search 
+
+{
+    "query":
+    {
+        "match":
+        {
+            "sport_types_name_es": "paracaidismo"
+        }
+    },
+    "aggs":
+    {
+        "avg_visits": { "avg": { "field": "visits_old_es" } }
+    },
+    "size": 0
+}
+
+===============================
+- Campos imortante /resources -
+===============================
+
+"parent_territory_name_es": provincia
+
+"territories_name_es": municipio
+
+"territories_habitants": nº habitantes
+
+"resource_type_name_es": tipo de recurso
+
+"subtypes_name_es": subtipo de recurso
+
+"segments_name_es": segmento
+
+"seasons_name_es": temporada
+
+"outstanding": destacado o no
+
+"name_es": nombre del recurso
+
+"vial_name": nombre de la via del recurso
+
+"public_types_name_es": colectivos aptos para el recurso
+
+"sport_types_name_es": deportes
+
+"visits_old_es": nº de visitas
+
+=================================
+- Campos imortante /territories -
+=================================
+
+"habitants": nº habitantes
+
+"outstanding": destacado o no
+
+"parent_territory_name": territorio superior
+
+"province_name": provincia a la que pertenece
+
+"visits_old_es": nº visitas
+
+"name_es": nombre dek territorio
+
+=========
+- Dudas -
+=========
+
+- Consultar los diferntes valores de un campo
+-- Hay que añadir la query
+{
+    "size": 0,
+
+    "aggs" : 
+    {
+        "subtipos_recursos" : {"terms" : { "field" : "subtypes_name_es"}}
+    }
+}
+
+- No retorna valores filter term
+-- Mejor probar con match porque el term actua sobre keywords
+{
+    "query":
+    {
+        "bool":
+        {
+            "filter":
+            [
+                {"term":{"territories_name_es.es":"cadiz"}},
+                {"term":{"resource_type_name_es.es":"playas"}}
+            ]
+        }
+    }
+}
+
+- Diferencia entre filter match y must match
+-- Filter no tiene score, must suma 1
+{
+    "query":
+    {
+        "bool":
+        {
+            "must":
+            [
+                {"match":{"territories_name_es.es":"cadiz"}},
+                {"match":{"resource_type_name_es.es":"playas"}}
+            ]
+        }
+    }
+}
+
+- Realizar una agregación sobre los documentos devueltos por una consulta
+-- Hay que añadir la query al mismo nivel que el aggs
+
+=========
+Pendiente
+=========
+
+- Hacer búsquedas combinadas por diferntes índices(territories, resources) e
+intentar ordenar resultados sin el sort, ajustando el boost. Ej.: buscar
+recursos de sevilla priorizando territorio de sevilla
