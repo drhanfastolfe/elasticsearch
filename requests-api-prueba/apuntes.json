@@ -149,10 +149,10 @@ GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
                     "match":{"terms_native_es.es": "rural"}
                 },
                 {
-                    "match":{"parent_territory_name_es.es": "granada"} // debería ser filtro
+                    "match":{"parent_territory_name_es.es": "granada"}// debería ser filtro
                 },
                 {
-                    "match":{"subtypes_name_es.es": "hotel"} // ¿filtro?
+                    "match":{"subtypes_name_es.es": "hotel"}// ¿filtro?
                 }
             ]
 
@@ -160,7 +160,7 @@ GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
     } 
 }
 
-- 6 - Búsqueda por filtro: {Municipio: Cádiz}, {Tipo de recurso: Playas}
+- 6 - Búsqueda por filtro: Municipio= Cádiz, Tipo de recurso= Playas
 
 GET /resources/_search?filter_path=hits.total,hits.max_score,hits.hits._source
 
@@ -222,8 +222,123 @@ GET /resources/_search
     "size": 0
 }
 
+- 9 - Consulta docs de sevilla priorizando aquellos del indice territories  
+    -- Lo hace mal porque name_es es un campo de ambos indices, por lo que el boost
+    se acaba aplicando a los dos 
+
+GET /territories,resources/_search
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "should":
+            [
+                {"match": {"territories_name_es.es": "sevilla"}},
+                {"match": {"name_es.es": 
+                    {
+                        "query": "sevilla",
+                        "boost": "2"
+                    }
+                }}
+            ]
+        }
+    },
+    "explain": "true"
+}
+
+- 10 - Consulta docs de sevilla priorizando aquellos recursos de sevilla capital
+    -- No visualiza los recursos primero
+
+GET /territories,resources/_search
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "should":
+            [
+                {
+                    "bool":
+                    {
+                        "must":
+                        {
+                            "match": 
+                            {
+                                "territories_name_es.es": "sevilla"
+                            }
+                        },
+                        "filter":
+                        {
+                            "term":
+                            {
+                                "_index": "resources"
+                            }
+                        }
+                    }
+                },
+                {
+                    "bool":
+                    {
+                        "must":
+                        {
+                            "match": 
+                            {
+                                "name_es.es": 
+                                {
+                                    "query": "sevilla",
+                                    "boost": "1"
+                                }
+                            }
+                        },
+                        "filter":
+                        {
+                            "term":
+                            {
+                                "_index": "territories"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "explain": "true"
+}
+
+- 11 - Consulta docs de sevilla priorizando aquellos recursos de sevilla capital
+
+GET /territories,resources/_search?filter_path=-hits.hits._source.view
+
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "should":
+            [
+                {"match": {"territories_name_es.es": "sevilla"}},
+                {"match": {"name_es.es": "sevilla"}}
+            ]
+        }
+    },
+    "sort":
+    [
+        {"visits_old_es": {"order": "desc"}},
+        "_score"
+    ],
+    "indices_boost":
+    [
+        {"resources": 1.2}
+    ],
+    "explain": "true"
+}
+
 ===============================
-- Campos imortante /resources -
+- Campos imortantes /resources -
 ===============================
 
 "parent_territory_name_es": provincia
@@ -253,7 +368,7 @@ GET /resources/_search
 "visits_old_es": nº de visitas
 
 =================================
-- Campos imortante /territories -
+- Campos imortantes /territories -
 =================================
 
 "habitants": nº habitantes
@@ -266,7 +381,7 @@ GET /resources/_search
 
 "visits_old_es": nº visitas
 
-"name_es": nombre dek territorio
+"name_es": nombre del territorio
 
 =========
 - Dudas -
@@ -319,9 +434,15 @@ GET /resources/_search
 -- Hay que añadir la query al mismo nivel que el aggs
 
 =========
-Pendiente
+MiniRetos
 =========
 
-- Hacer búsquedas combinadas por diferntes índices(territories, resources) e
-intentar ordenar resultados sin el sort, ajustando el boost. Ej.: buscar
-recursos de sevilla priorizando territorio de sevilla
+- 1 - 
+Realizar un consulta a multiples indices con boost:
+    - Que al buscar sevilla salgan antes los recuros mas relevantes de la capital   
+
+- 2 - 
+Mejorar la consula 11: 
+    - Añadir script simple: opreaciones basicas con "_score" y "visits_old_es"
+    - Sort script con logn de "visits_old_es" 
+    - Añadir boost al nombre del recurso
