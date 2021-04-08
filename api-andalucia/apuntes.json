@@ -337,6 +337,94 @@ GET /territories,resources/_search?filter_path=-hits.hits._source.view
     "explain": "true"
 }
 
+- 12 - Consulta docs de sevilla priorizando aquellos recursos de sevilla capital
+
+GET /territories,resources/_search
+
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "should":
+            [
+                {"match": {"territories_name_es.es": "sevilla"}},
+                {"match": {"name_es.es": "sevilla"}}
+            ]
+        }
+    },
+    "track_scores": true,
+    "indices_boost":
+    [
+        {"resources": 1.2},
+        {"territories": 3}
+    ],
+    "sort":
+    [
+        {
+            "_script":
+            {
+                "type": "number",
+                "script":"_score + Math.log(doc['visits_old_es'].value)",
+                "order": "desc"
+            }
+        }
+    ],
+    "size":20,
+    "explain": "false",
+    "script_fields": 
+    {
+        "name_es":{"script": "params['_source']['name_es']"},
+        "territories_name_es":{"script": "params['_source']['territories_name_es']"}
+    }
+}
+
+- 13 - Consulta docs de sevilla priorizando aquellos recursos de sevilla capital
+
+GET /territories,resources/_search
+
+{
+    "query":
+    {
+        "bool":
+        {
+            "should":
+            [
+                {"match": {"territories_name_es.es": "sevilla"}},
+                {"match": {"name_es.es": "sevilla"}}
+            ]
+        }
+    },
+    "track_scores": true,
+    "indices_boost":
+    [
+        {"resources": 1.2},
+        {"territories": 3}
+    ],
+    "sort":
+    [
+        {
+            "_script":
+            {
+                "type": "number",
+                "script":
+                {
+                    "source": "double newScore = 0; if(doc['outstanding'].value) {newScore = (_score + Math.log(doc['visits_old_es'].value)) * params.destacado} else {newScore = _score + Math.log(doc['visits_old_es'].value)} return newScore",
+                    "params":{"destacado":1.01}
+                },
+                "order": "desc"
+            }
+        }
+    ],
+    "size":20,
+    "explain": "false",
+    "_source":
+    {
+        "include": ["name_es", "territories_name_es"]
+    }
+}
+
 ===============================
 - Campos imortantes /resources -
 ===============================
@@ -437,12 +525,25 @@ GET /territories,resources/_search?filter_path=-hits.hits._source.view
 MiniRetos
 =========
 
-- 1 - 
+- 1 - X
 Realizar un consulta a multiples indices con boost:
     - Que al buscar sevilla salgan antes los recuros mas relevantes de la capital   
 
-- 2 - 
+- 2 - X
 Mejorar la consula 11: 
     - Añadir script simple: opreaciones basicas con "_score" y "visits_old_es"
     - Sort script con logn de "visits_old_es" 
     - Añadir boost al nombre del recurso
+
+- 2.1 - 
+Mejorar la consula 11:
+    - Dentro de los recursos que te salen priorizar los que tienen territorio sevilla a los que en el nombre sale sevilla
+
+- 3 -
+Estudiar mapping
+
+- 4 - 
+Estudiar analizadores
+
+- 5 -
+Estudiar geo data 
