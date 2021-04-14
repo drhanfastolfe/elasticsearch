@@ -425,6 +425,49 @@ GET /territories,resources/_search
     }
 }
 
+- 14 - 13+ de los recursos obtenidos priorizar los que tienen territorio sevilla a los que en el nombre sale sevilla
+
+GET /territories,resources/_search
+
+{
+    "query":
+    {
+        "multi_match":
+        {
+            "query":"sevilla",
+            "type":"most_fields",
+            "fields":["territories_name_es.es^1.009","name_es.es"]
+        }
+    },
+    "track_scores": true,
+    "indices_boost":
+    [
+        {"resources": 1.2},
+        {"territories": 3}
+    ],
+    "sort":
+    [
+        {
+            "_script":
+            {
+                "type": "number",
+                "script":
+                {
+                    "source": "double newScore = 0; if(doc['outstanding'].value) {newScore = (_score + Math.log(doc['visits_old_es'].value)) * params.destacado} else {newScore = _score + Math.log(doc['visits_old_es'].value)} return newScore",
+                    "params":{"destacado":1.01}
+                },
+                "order": "desc"
+            }
+        }
+    ],
+    "size":20,
+    "explain": "false",
+    "_source":
+    {
+        "include": ["name_es", "territories_name_es"]
+    }
+}
+
 ===============================
 - Campos imortantes /resources -
 ===============================
